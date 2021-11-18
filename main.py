@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from sentence_transformers import SentenceTransformer
+from pydantic import BaseModel
 
 
 app = FastAPI()
@@ -31,6 +32,13 @@ with open("roam_embeddings.json", "r") as file:
     index = faiss.IndexFlatL2(len(embeddings[0]))
     index.add(embeddings)
     model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2')
+
+def query_index(text, model, target_list, index, with_distance=False, k=10):
+    embedding = model.encode([text])
+    distances, indices = index.search(embedding, k)
+    if with_distance:
+        return [(target_list[index], distances[0][i]) for i, index in enumerate(indices[0])]
+    return [target_list[i] for i in indices[0]]
 
 # PAYLOAD CLASSES
 class RoamParams(BaseModel):
@@ -63,4 +71,4 @@ def read_root():
 
 if __name__ == "__main__":
     load_dotenv('.env')
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run("main:app", host="0.0.0.0", port=8080)
